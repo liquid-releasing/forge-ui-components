@@ -1,39 +1,54 @@
 """Thin Streamlit render layer for beat bar."""
 
+from __future__ import annotations
+
 import streamlit as st
 
-from .core import BeatData
+from .core import beat_bar_figure, beat_stats
 
 
-def render_beat_bar(beat_data: BeatData | None, *, key: str = "beat_bar"):
-    """Render beat visualization and stats.
+def render_beat_bar(beat_map, *, height: int = 80, show_energy: bool = True, key: str = "beat_bar"):
+    """Render beat visualization from a videoflow AudioBeatMap.
 
     Args:
-        beat_data: Beat detection results, or None if not yet generated.
+        beat_map: videoflow.audio.AudioBeatMap instance, or None.
+        height: Chart height in pixels.
+        show_energy: If True, bar height reflects per-beat energy.
         key: Unique Streamlit widget key.
     """
-    if beat_data is None:
+    if beat_map is None:
         st.info("No beat data. Run beat detection to visualize.")
         return
 
-    st.caption(f"BPM: {beat_data.bpm:.1f} — {len(beat_data.beat_times)} beats detected")
-
-    # Beat markers as a simple bar chart
-    import plotly.graph_objects as go
-
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=beat_data.beat_times,
-        y=[1] * len(beat_data.beat_times),
-        width=0.05,
-        marker_color="#4C8BF5",
-        showlegend=False,
-    ))
-    fig.update_layout(
-        height=80,
-        margin=dict(l=0, r=0, t=0, b=20),
-        xaxis_title="Time (s)",
-        yaxis=dict(visible=False),
-        bargap=0,
+    stats = beat_stats(beat_map)
+    st.caption(
+        f"BPM: **{stats['bpm']:.1f}** · "
+        f"{stats['beat_count']} beats · "
+        f"{stats['downbeat_count']} downbeats · "
+        f"{stats['phrase_count']} phrases"
     )
-    st.plotly_chart(fig, use_container_width=True, key=key)
+
+    energy = beat_map.energy if show_energy else None
+    fig = beat_bar_figure(
+        beat_map.beats,
+        energy=energy,
+        duration_ms=beat_map.duration_ms,
+        height=height,
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key=key)
+
+
+def render_beat_stats_row(beat_map):
+    """Render beat stats as a Streamlit metric row.
+
+    Args:
+        beat_map: videoflow.audio.AudioBeatMap instance.
+    """
+    if beat_map is None:
+        return
+    stats = beat_stats(beat_map)
+    cols = st.columns(4)
+    cols[0].metric("BPM", f"{stats['bpm']:.1f}")
+    cols[1].metric("Beats", f"{stats['beat_count']:,}")
+    cols[2].metric("Downbeats", f"{stats['downbeat_count']:,}")
+    cols[3].metric("Phrases", f"{stats['phrase_count']:,}")

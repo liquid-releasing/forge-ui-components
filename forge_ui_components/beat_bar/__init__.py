@@ -1,5 +1,17 @@
-"""Beat bar component — generate beat data, cache, and visualize."""
+"""Beat bar component — wraps videoflow AudioBeatMap with visualization."""
 
-from .core import BeatData, generate_beats
+from .core import (
+    analyze_beats,
+    beat_bar_figure,
+    beat_stats,
+    load_cached_beats,
+    save_beats,
+)
 
-__all__ = ["BeatData", "generate_beats"]
+__all__ = [
+    "analyze_beats",
+    "beat_bar_figure",
+    "beat_stats",
+    "load_cached_beats",
+    "save_beats",
+]

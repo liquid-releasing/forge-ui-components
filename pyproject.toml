@@ -14,7 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 streamlit = ["streamlit>=1.30"]
-beats = ["librosa>=0.10"]
+beats = ["videoflow[audio]"]
 dev = ["pytest>=7.0", "ruff>=0.3"]
 
 [tool.setuptools.packages.find]
