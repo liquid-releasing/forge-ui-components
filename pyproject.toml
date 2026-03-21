@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forge-ui-components"
+version = "0.1.0"
+description = "Reusable UI components for Xolv forge apps"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "plotly>=5.0",
+]
+
+[project.optional-dependencies]
+streamlit = ["streamlit>=1.30"]
+beats = ["librosa>=0.10"]
+dev = ["pytest>=7.0", "ruff>=0.3"]
+
+[tool.setuptools.packages.find]
+include = ["forge_ui_components*"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
