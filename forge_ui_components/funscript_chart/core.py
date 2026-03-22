@@ -50,7 +50,7 @@ ANNOTATION_COLORS = {
     "phase": "rgba(100, 149, 237, 0.25)",
     "cycle": "rgba(60, 179, 113, 0.25)",
     "pattern": "rgba(255, 165, 0, 0.25)",
-    "phrase": "rgba(218, 112, 214, 0.25)",
+    "phrase": "rgba(255, 255, 255, 0.15)",
     "transition": "rgba(255, 99, 71, 0.60)",
 }
 
@@ -347,11 +347,11 @@ def vibrant_figure(
             border = "rgba(255,220,50,1.0)"
             fill = "rgba(255,220,50,0.15)"
         elif has_selection:
-            border = "rgba(218,112,214,0.40)"
+            border = "rgba(255,255,255,0.30)"
             fill = "rgba(60,60,80,0.45)"
         else:
-            border = "rgba(218,112,214,0.85)"
-            fill = "rgba(218,112,214,0.12)"
+            border = "rgba(255,255,255,0.70)"
+            fill = "rgba(255,255,255,0.06)"
         fig.add_vrect(
             x0=band.start_ms, x1=band.end_ms,
             fillcolor=fill,
@@ -364,8 +364,8 @@ def vibrant_figure(
                 text=band.name,
                 showarrow=False,
                 xanchor="left", yanchor="top",
-                font=dict(size=11, color=border),
-                bgcolor="rgba(0,0,0,0)",
+                font=dict(size=11, color="rgba(255,255,255,0.90)"),
+                bgcolor="rgba(0,0,0,0.6)",
             )
 
     # --- Invisible phrase hit targets ---
