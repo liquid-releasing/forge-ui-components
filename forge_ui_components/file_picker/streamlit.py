@@ -44,6 +44,23 @@ def render_upload(
     Returns:
         The current file path (may be updated by upload or cleared).
     """
+    # When a file is already loaded, skip the uploader widget entirely
+    # to avoid Streamlit re-processing large files on every rerun.
+    if current_path:
+        if show_clear:
+            col_name, col_clear = st.columns([6, 1])
+            col_name.caption(f"{config.icon} {Path(current_path).name}")
+            if col_clear.button("✕", key=f"clear_{config.media_type}", help=f"Remove {config.media_type}"):
+                if on_clear:
+                    on_clear(config)
+                st.session_state.pop(config.session_path_key, None)
+                st.session_state.pop(config.processed_key, None)
+                st.rerun()
+        else:
+            st.caption(f"{config.icon} {Path(current_path).name}")
+        return current_path
+
+    # No file loaded — show the uploader
     uploaded = st.file_uploader(
         config.label,
         type=config.accepted_extensions or None,
@@ -59,19 +76,5 @@ def render_upload(
                 st.session_state[config.session_path_key] = resolved
                 mark_processed(config, uploaded.name, st.session_state)
                 st.rerun()
-
-    # Display current file with clear button
-    if current_path:
-        if show_clear:
-            col_name, col_clear = st.columns([6, 1])
-            col_name.caption(f"{config.icon} {Path(current_path).name}")
-            if col_clear.button("✕", key=f"clear_{config.media_type}", help=f"Remove {config.media_type}"):
-                if on_clear:
-                    on_clear(config)
-                st.session_state.pop(config.session_path_key, None)
-                st.session_state.pop(config.processed_key, None)
-                st.rerun()
-        else:
-            st.caption(f"{config.icon} {Path(current_path).name}")
 
     return current_path
