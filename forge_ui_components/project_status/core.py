@@ -65,7 +65,7 @@ class ProjectStatus:
 
     def workflow_line(self) -> str:
         """Build the ✅/⬜ workflow progress string."""
-        tab_order = ["Project", "Device", "Tone", "Phrases", "Export"]
+        tab_order = ["Project", "Device", "Tone", "Phrases", "Patterns", "Export"]
         parts = []
         for tab in tab_order:
             done = self.tabs_completed.get(tab, False)
