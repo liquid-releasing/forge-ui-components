@@ -55,7 +55,7 @@ ANNOTATION_COLORS = {
 }
 
 # Funscripts with more total actions than this use fast grey-line rendering
-_LARGE_FUNSCRIPT_THRESHOLD = 10000
+_LARGE_FUNSCRIPT_THRESHOLD = 25000
 _MAX_SEGMENT_TRACES = 600
 
 
