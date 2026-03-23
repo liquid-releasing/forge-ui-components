@@ -71,7 +71,8 @@ def render_upload(
     # New upload guard — only process once per filename
     if uploaded and is_new_upload(config, uploaded.name, st.session_state):
         if on_upload:
-            resolved = on_upload(uploaded, config)
+            with st.spinner(f"Loading {uploaded.name}…"):
+                resolved = on_upload(uploaded, config)
             if resolved:
                 st.session_state[config.session_path_key] = resolved
                 mark_processed(config, uploaded.name, st.session_state)
