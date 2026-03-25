@@ -388,28 +388,10 @@ def vibrant_figure(
     # --- Motion line + dots ---
     n = len(s.times_ms)
     dot_size = 5 if (n - 1) <= _MAX_SEGMENT_TRACES else 3
-    large = len(series.times_ms) > large_funscript_threshold
 
     if n > 0:
-        if large:
-            fig.add_trace(go.Scatter(
-                x=s.times_ms, y=s.positions,
-                mode="lines",
-                line=dict(color="rgba(200,200,200,0.55)", width=1),
-                showlegend=False, hoverinfo="skip",
-            ))
-            if has_selection:
-                sel_s = slice_series(s, view_state.selection_start_ms, view_state.selection_end_ms)
-                sel_colors = sel_s.colors_velocity if color_mode == "velocity" else sel_s.colors_amplitude
-                for i in range(len(sel_s.times_ms) - 1):
-                    fig.add_trace(go.Scatter(
-                        x=[sel_s.times_ms[i], sel_s.times_ms[i + 1]],
-                        y=[sel_s.positions[i], sel_s.positions[i + 1]],
-                        mode="lines",
-                        line=dict(color=sel_colors[i], width=2),
-                        showlegend=False, hoverinfo="skip",
-                    ))
-        else:
+        if (n - 1) <= _MAX_SEGMENT_TRACES:
+            # Small: individual colored segments (crisp, < 600 traces)
             for i in range(n - 1):
                 fig.add_trace(go.Scatter(
                     x=[s.times_ms[i], s.times_ms[i + 1]],
@@ -418,6 +400,27 @@ def vibrant_figure(
                     line=dict(color=colors[i], width=2),
                     showlegend=False, hoverinfo="skip",
                 ))
+        else:
+            # Large: single grey line + colored markers (fast, any size)
+            fig.add_trace(go.Scatter(
+                x=s.times_ms, y=s.positions,
+                mode="lines",
+                line=dict(color="rgba(200,200,200,0.35)", width=1),
+                showlegend=False, hoverinfo="skip",
+            ))
+            # If a phrase is selected, draw its segments in color
+            if has_selection:
+                sel_s = slice_series(s, view_state.selection_start_ms, view_state.selection_end_ms)
+                sel_colors = sel_s.colors_velocity if color_mode == "velocity" else sel_s.colors_amplitude
+                if len(sel_s.times_ms) <= _MAX_SEGMENT_TRACES:
+                    for i in range(len(sel_s.times_ms) - 1):
+                        fig.add_trace(go.Scatter(
+                            x=[sel_s.times_ms[i], sel_s.times_ms[i + 1]],
+                            y=[sel_s.positions[i], sel_s.positions[i + 1]],
+                            mode="lines",
+                            line=dict(color=sel_colors[i], width=2),
+                            showlegend=False, hoverinfo="skip",
+                        ))
         fig.add_trace(go.Scatter(
             x=s.times_ms, y=s.positions,
             mode="markers",
