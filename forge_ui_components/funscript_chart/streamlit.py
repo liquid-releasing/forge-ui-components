@@ -108,6 +108,84 @@ def render_vibrant(
     return event
 
 
+def render_static(
+    actions: list[dict],
+    bands: list[AnnotationBand] | None = None,
+    *,
+    color_mode: str = "velocity",
+    height_px: int = 250,
+    width_px: int = 1400,
+    show_labels: bool = True,
+    title: str = "",
+    caption: str = "",
+    key: str | None = None,
+):
+    """Render a static PNG funscript chart in Streamlit.
+
+    Fast, non-interactive. Use for overviews and previews.
+    Color shows velocity (blue=slow → red=fast) with phrase boundaries.
+    """
+    from .static import render_vibrant_static, render_monochrome_static
+
+    if not actions:
+        return
+
+    if color_mode == "velocity" or color_mode == "vibrant":
+        png = render_vibrant_static(
+            actions, bands,
+            height_px=height_px, width_px=width_px,
+            show_labels=show_labels, title=title,
+        )
+    else:
+        times_s = [a["at"] / 1000.0 for a in actions]
+        positions = [a["pos"] for a in actions]
+        png = render_monochrome_static(
+            times_s, positions,
+            height_px=height_px, width_px=width_px, title=title,
+        )
+
+    st.image(png, use_container_width=True)
+    if caption:
+        st.caption(caption)
+
+
+def render_static_from_arrays(
+    times_s: list[float],
+    positions: list[float],
+    *,
+    color_mode: str = "monochrome",
+    height_px: int = 180,
+    width_px: int = 1400,
+    title: str = "",
+    caption: str = "",
+):
+    """Render a static PNG chart from pre-extracted arrays.
+
+    Used by device_tab and tone_tab for before/after previews.
+    """
+    if not times_s:
+        return
+
+    from .static import render_monochrome_static, render_vibrant_static
+    from .core import PointSeries, compute_chart_data
+
+    if color_mode == "monochrome":
+        png = render_monochrome_static(
+            times_s, positions,
+            height_px=height_px, width_px=width_px, title=title,
+        )
+    else:
+        # Build actions for compute_chart_data
+        actions = [{"at": int(t * 1000), "pos": int(p)} for t, p in zip(times_s, positions)]
+        png = render_vibrant_static(
+            actions, height_px=height_px, width_px=width_px, title=title,
+        )
+
+    st.image(png, use_container_width=True)
+    if caption:
+        st.caption(caption)
+
+
 def render_stats_row(stats: dict):
     """Render funscript stats as a Streamlit metric row.
 
