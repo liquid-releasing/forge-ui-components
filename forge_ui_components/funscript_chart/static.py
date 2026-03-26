@@ -1,0 +1,248 @@
+"""Static PNG chart renderer using Matplotlib.
+
+Fast, non-interactive charts for overview/preview use cases.
+Color shows velocity (blue=slow → red=fast). Phrase boundaries
+are baked into the image as white vertical lines + labels.
+
+Use cases:
+- Project tab: full funscript overview
+- Device tab: before/after preview
+- Tone tab: before/after preview
+- Phrases overview: full funscript with phrase boundaries
+- Stim: channel previews
+- Export: final preview
+
+For interactive editing (hover timestamps, split/join), use the
+Plotly-based charts in streamlit.py instead.
+"""
+
+from __future__ import annotations
+
+import io
+from typing import List, Optional
+
+import matplotlib
+matplotlib.use("Agg")  # Non-interactive backend
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
+
+from .core import PointSeries, AnnotationBand, compute_chart_data
+
+
+# Dark theme matching Streamlit
+_BG_COLOR = "#0e1117"
+_PLOT_BG = "#1a1d23"
+_TEXT_COLOR = "#cccccc"
+_GRID_COLOR = "#2a2d33"
+
+# Velocity colormap: blue → cyan → green → yellow → red
+_VELOCITY_CMAP = mcolors.LinearSegmentedColormap.from_list(
+    "velocity",
+    ["#1a2fff", "#00bfff", "#00e000", "#ffdd00", "#ff1a1a"],
+)
+
+# Monochrome blue
+_MONO_BLUE = "#4C8BF5"
+
+
+def render_static_chart(
+    series: PointSeries,
+    bands: Optional[List[AnnotationBand]] = None,
+    *,
+    color_mode: str = "velocity",
+    height_px: int = 250,
+    width_px: int = 1400,
+    show_labels: bool = True,
+    selected_band: Optional[AnnotationBand] = None,
+    title: str = "",
+) -> bytes:
+    """Render a funscript chart as a PNG image.
+
+    Args:
+        series: Pre-computed PointSeries (from compute_chart_data).
+        bands: Optional phrase/pattern annotation bands.
+        color_mode: "velocity" (blue→red) or "monochrome" (solid blue).
+        height_px: Image height in pixels.
+        width_px: Image width in pixels.
+        show_labels: Show phrase labels (P1, P2, ...) at the top.
+        selected_band: Highlight this band with a yellow border.
+        title: Optional title text above chart.
+
+    Returns:
+        PNG image bytes.
+    """
+    dpi = 100
+    fig_w = width_px / dpi
+    fig_h = height_px / dpi
+
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=dpi)
+    fig.patch.set_facecolor(_BG_COLOR)
+    ax.set_facecolor(_PLOT_BG)
+
+    if not series.times_ms:
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0.1)
+        plt.close(fig)
+        buf.seek(0)
+        return buf.read()
+
+    times_s = np.array(series.times_ms, dtype=float) / 1000.0
+    positions = np.array(series.positions, dtype=float)
+    n = len(times_s)
+
+    # ── Draw phrase boundaries ──────────────────────────────────────
+    if bands:
+        for band in bands:
+            if band.kind != "phrase":
+                continue
+            b_start = band.start_ms / 1000.0
+            b_end = band.end_ms / 1000.0
+
+            is_selected = (
+                selected_band is not None
+                and band.start_ms == selected_band.start_ms
+                and band.end_ms == selected_band.end_ms
+            )
+
+            if is_selected:
+                ax.axvspan(b_start, b_end, facecolor="#ffdc3230",
+                           edgecolor="#ffdc32", linewidth=2, zorder=1)
+            else:
+                # White boundary lines
+                ax.axvline(b_start, color="white", linewidth=0.5,
+                           alpha=0.4, zorder=1)
+
+            # Labels at top
+            if show_labels and band.name:
+                ax.text(
+                    b_start + (b_end - b_start) * 0.02, 97,
+                    band.name,
+                    fontsize=7, color="white", alpha=0.8,
+                    verticalalignment="top",
+                    bbox=dict(boxstyle="square,pad=0.1",
+                              facecolor="black", alpha=0.5, edgecolor="none"),
+                    zorder=5,
+                )
+
+    # ── Draw the funscript ──────────────────────────────────────────
+    if color_mode == "velocity" and n > 1:
+        # Color-coded line segments using LineCollection (fast)
+        from matplotlib.collections import LineCollection
+
+        vel_norm = np.array(series.velocity_norm, dtype=float)
+
+        # Build segments: [[x0,y0], [x1,y1]] for each pair
+        points = np.column_stack([times_s, positions])
+        segments = np.stack([points[:-1], points[1:]], axis=1)
+
+        # Color by velocity of the second point in each segment
+        colors = _VELOCITY_CMAP(vel_norm[1:])
+
+        lc = LineCollection(segments, colors=colors, linewidths=1.2, zorder=3)
+        ax.add_collection(lc)
+
+        # Fill under the line with semi-transparent velocity color
+        # Use a gradient fill approximation: just fill with dark overlay
+        ax.fill_between(times_s, 0, positions, color=_MONO_BLUE,
+                         alpha=0.08, zorder=2)
+    else:
+        # Monochrome
+        ax.plot(times_s, positions, color=_MONO_BLUE, linewidth=1.2, zorder=3)
+        ax.fill_between(times_s, 0, positions, color=_MONO_BLUE,
+                         alpha=0.15, zorder=2)
+
+    # ── Axes and labels ─────────────────────────────────────────────
+    ax.set_xlim(times_s[0], times_s[-1])
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("pos", color=_TEXT_COLOR, fontsize=8)
+
+    # Format x-axis as mm:ss
+    dur_s = times_s[-1] - times_s[0]
+    if dur_s > 3600:
+        # Hour+ format
+        def _fmt(x, _):
+            m, s = divmod(int(x), 60)
+            h, m = divmod(m, 60)
+            return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+    else:
+        def _fmt(x, _):
+            m, s = divmod(int(x), 60)
+            return f"{m}:{s:02d}"
+
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(_fmt))
+    ax.tick_params(colors=_TEXT_COLOR, labelsize=7)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_color(_GRID_COLOR)
+    ax.spines["left"].set_color(_GRID_COLOR)
+
+    if title:
+        ax.set_title(title, color=_TEXT_COLOR, fontsize=10, pad=5)
+
+    # ── Export to PNG ───────────────────────────────────────────────
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0.1,
+                facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
+
+
+def render_monochrome_static(
+    times_s: list[float],
+    positions: list[float],
+    *,
+    height_px: int = 180,
+    width_px: int = 1400,
+    title: str = "",
+) -> bytes:
+    """Quick monochrome static chart — no assessment data needed.
+
+    Args:
+        times_s: Timestamps in seconds.
+        positions: Position values (0-100).
+
+    Returns:
+        PNG image bytes.
+    """
+    series = PointSeries(
+        times_ms=[int(t * 1000) for t in times_s],
+        positions=list(positions),
+    )
+    return render_static_chart(
+        series, color_mode="monochrome",
+        height_px=height_px, width_px=width_px, title=title,
+    )
+
+
+def render_vibrant_static(
+    actions: list[dict],
+    bands: Optional[List[AnnotationBand]] = None,
+    *,
+    height_px: int = 250,
+    width_px: int = 1400,
+    show_labels: bool = True,
+    selected_band: Optional[AnnotationBand] = None,
+    title: str = "",
+) -> bytes:
+    """Compute chart data and render as vibrant static PNG.
+
+    Convenience wrapper: actions → compute_chart_data → render_static_chart.
+
+    Args:
+        actions: Funscript actions [{"at": ms, "pos": 0-100}, ...].
+        bands: Phrase annotation bands.
+
+    Returns:
+        PNG image bytes.
+    """
+    series = compute_chart_data(actions)
+    return render_static_chart(
+        series, bands,
+        color_mode="velocity",
+        height_px=height_px, width_px=width_px,
+        show_labels=show_labels,
+        selected_band=selected_band,
+        title=title,
+    )
