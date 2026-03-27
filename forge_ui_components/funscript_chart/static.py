@@ -106,8 +106,8 @@ def render_static_chart(
             )
 
             if is_selected:
-                ax.axvspan(b_start, b_end, facecolor="#ffdc3220",
-                           edgecolor="#ffdc32", linewidth=3, zorder=1)
+                ax.axvspan(b_start, b_end, facecolor="#ffffff10",
+                           edgecolor="#ffffff", linewidth=3, zorder=1)
             else:
                 # White boundary lines — prominent
                 ax.axvline(b_start, color="white", linewidth=1.5,
@@ -156,7 +156,7 @@ def render_static_chart(
     if selected_band is not None:
         _sel_start = selected_band.start_ms / 1000.0
         _sel_end = selected_band.end_ms / 1000.0
-        _DIM_COLOR = "#0e111780"  # Semi-transparent dark overlay
+        _DIM_COLOR = "#0e1117b0"  # Darker semi-transparent overlay
         if times_s[0] < _sel_start:
             ax.axvspan(times_s[0], _sel_start, facecolor=_DIM_COLOR,
                        edgecolor="none", zorder=6)
