@@ -1,5 +1,6 @@
 """Funscript chart component — monochrome (fast) and vibrant (color-coded) modes."""
 
+from .cache import ChartCache
 from .core import (
     ANNOTATION_COLORS,
     MONO_BLUE,
@@ -16,6 +17,7 @@ from .core import (
 )
 
 __all__ = [
+    "ChartCache",
     "ANNOTATION_COLORS",
     "MONO_BLUE",
     "AnnotationBand",
