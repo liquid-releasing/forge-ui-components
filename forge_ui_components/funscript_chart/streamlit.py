@@ -186,6 +186,20 @@ def render_static_from_arrays(
         st.caption(caption)
 
 
+def render_cv_strip(
+    actions: list[dict],
+    *,
+    title: str = "",
+    height_px: int = 40,
+    width_px: int = 1400,
+):
+    """Render a CV groove heatmap strip — red=mechanical, green=groovy."""
+    from .static import render_cv_strip as _render
+    png = _render(actions, title=title, height_px=height_px, width_px=width_px)
+    if png:
+        st.image(png, use_container_width=True)
+
+
 def render_stats_row(stats: dict):
     """Render funscript stats as a Streamlit metric row.
 

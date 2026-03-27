@@ -246,3 +246,116 @@ def render_vibrant_static(
         selected_band=selected_band,
         title=title,
     )
+
+
+# ── CV (Groove) heatmap strip ───────────────────────────────────────────
+
+# CV colormap: red (mechanical) → yellow → green (groovy)
+_CV_CMAP = mcolors.LinearSegmentedColormap.from_list(
+    "cv_groove",
+    ["#ff2222", "#ff8800", "#ffdd00", "#88dd00", "#22cc44"],
+)
+
+
+def render_cv_strip(
+    actions: list[dict],
+    *,
+    window_seconds: int = 60,
+    height_px: int = 40,
+    width_px: int = 1400,
+    title: str = "",
+    show_labels: bool = True,
+) -> bytes:
+    """Render a compact CV (groove) heatmap strip as PNG.
+
+    Shows timing variation per window: red = mechanical, green = groovy.
+    Helps visualize what Humanize changed — monotone sections go from
+    red to green after Groove is applied.
+
+    Args:
+        actions: Funscript actions list.
+        window_seconds: Window size for CV computation (default 60s).
+        height_px: Strip height in pixels.
+        width_px: Strip width in pixels.
+        title: Optional label above strip.
+        show_labels: Show "Mechanical" / "Groovy" labels.
+
+    Returns:
+        PNG image bytes.
+    """
+    if len(actions) < 10:
+        return b""
+
+    times = np.array([a["at"] for a in actions], dtype=float)
+    pos = np.array([a["pos"] for a in actions], dtype=float)
+    dt_ms = np.diff(times)
+    dp_abs = np.abs(np.diff(pos))
+    velocity = np.where(dt_ms > 0, dp_abs / dt_ms * 1000, 0)
+
+    dur_s = (times[-1] - times[0]) / 1000
+    dur_min = dur_s / 60
+    window_ms = window_seconds * 1000
+
+    # Compute CV per window
+    cv_values = []
+    cv_centers = []
+    for s_min in range(0, int(dur_min) + 1):
+        s_ms = s_min * 60000
+        e_ms = s_ms + window_ms
+        mask = (times[:-1] >= s_ms) & (times[:-1] < e_ms)
+        v = velocity[mask]
+        if len(v) > 5 and np.mean(v) > 0:
+            cv = float(np.std(v) / np.mean(v))
+        else:
+            cv = 0.0
+        cv_values.append(cv)
+        cv_centers.append((s_ms + e_ms / 2) / 1000.0)
+
+    if not cv_values:
+        return b""
+
+    # Normalize CV to [0, 1] for colormap (0 = mechanical, 0.5+ = groovy)
+    # Cap at 0.5 for color mapping (anything above 0.5 is fully green)
+    cv_norm = np.clip(np.array(cv_values) / 0.5, 0, 1)
+
+    dpi = 100
+    fig_w = width_px / dpi
+    fig_h = height_px / dpi
+
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=dpi)
+    fig.patch.set_facecolor(_BG_COLOR)
+    ax.set_facecolor(_PLOT_BG)
+
+    # Draw colored blocks
+    n_blocks = len(cv_values)
+    block_width = dur_s / n_blocks if n_blocks > 0 else 1
+
+    for i, (cv_n, cv_raw) in enumerate(zip(cv_norm, cv_values)):
+        x_start = i * block_width
+        color = _CV_CMAP(cv_n)
+        ax.barh(0, block_width, left=x_start, height=1,
+                color=color, edgecolor="none")
+
+    ax.set_xlim(0, dur_s)
+    ax.set_ylim(-0.5, 0.5)
+    ax.axis("off")
+
+    if title:
+        ax.set_title(title, color=_TEXT_COLOR, fontsize=9, pad=2, loc="left")
+
+    if show_labels:
+        # Compute overall stats
+        cv_median = float(np.median(cv_values))
+        n_mechanical = sum(1 for c in cv_values if c < 0.15)
+        pct_mechanical = n_mechanical / len(cv_values) * 100
+        label = f"Groove: CV {cv_median:.2f} · {pct_mechanical:.0f}% mechanical"
+        ax.text(dur_s * 0.5, -0.4, label,
+                fontsize=7, color=_TEXT_COLOR, alpha=0.7,
+                ha="center", va="top")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0.02,
+                facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
