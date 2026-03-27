@@ -106,12 +106,12 @@ def render_static_chart(
             )
 
             if is_selected:
-                ax.axvspan(b_start, b_end, facecolor="#ffdc3230",
-                           edgecolor="#ffdc32", linewidth=2, zorder=1)
+                ax.axvspan(b_start, b_end, facecolor="#ffdc3220",
+                           edgecolor="#ffdc32", linewidth=3, zorder=1)
             else:
-                # White boundary lines
-                ax.axvline(b_start, color="white", linewidth=0.5,
-                           alpha=0.4, zorder=1)
+                # White boundary lines — prominent
+                ax.axvline(b_start, color="white", linewidth=1.5,
+                           alpha=0.7, zorder=4)
 
             # Labels at top
             if show_labels and band.name:
@@ -151,6 +151,18 @@ def render_static_chart(
         ax.plot(times_s, positions, color=_MONO_BLUE, linewidth=1.2, zorder=3)
         ax.fill_between(times_s, 0, positions, color=_MONO_BLUE,
                          alpha=0.15, zorder=2)
+
+    # ── Dim context outside selected phrase ─────────────────────────
+    if selected_band is not None:
+        _sel_start = selected_band.start_ms / 1000.0
+        _sel_end = selected_band.end_ms / 1000.0
+        _DIM_COLOR = "#0e111780"  # Semi-transparent dark overlay
+        if times_s[0] < _sel_start:
+            ax.axvspan(times_s[0], _sel_start, facecolor=_DIM_COLOR,
+                       edgecolor="none", zorder=6)
+        if _sel_end < times_s[-1]:
+            ax.axvspan(_sel_end, times_s[-1], facecolor=_DIM_COLOR,
+                       edgecolor="none", zorder=6)
 
     # ── Axes and labels ─────────────────────────────────────────────
     ax.set_xlim(times_s[0], times_s[-1])
