@@ -93,6 +93,7 @@ def render_static_chart(
 
     # ── Draw phrase boundaries ──────────────────────────────────────
     if bands:
+        _phrase_idx = 0
         for band in bands:
             if band.kind != "phrase":
                 continue
@@ -106,24 +107,33 @@ def render_static_chart(
             )
 
             if is_selected:
+                # Bright white selection box
                 ax.axvspan(b_start, b_end, facecolor="#ffffff10",
                            edgecolor="#ffffff", linewidth=3, zorder=1)
             else:
-                # White boundary lines — prominent
-                ax.axvline(b_start, color="white", linewidth=1.5,
-                           alpha=0.7, zorder=4)
+                # Alternating zebra stripe — odd phrases get subtle dark tint
+                if _phrase_idx % 2 == 1:
+                    ax.axvspan(b_start, b_end, facecolor="#00000025",
+                               edgecolor="none", zorder=1)
 
-            # Labels at top
+                # Thick white boundary line at phrase start
+                ax.axvline(b_start, color="white", linewidth=3,
+                           alpha=0.85, zorder=7)
+
+            # Labels — prominent with solid background
             if show_labels and band.name:
                 ax.text(
                     b_start + (b_end - b_start) * 0.02, 97,
                     band.name,
-                    fontsize=7, color="white", alpha=0.8,
+                    fontsize=9, fontweight="bold",
+                    color="white", alpha=1.0,
                     verticalalignment="top",
-                    bbox=dict(boxstyle="square,pad=0.1",
-                              facecolor="black", alpha=0.5, edgecolor="none"),
-                    zorder=5,
+                    bbox=dict(boxstyle="square,pad=0.15",
+                              facecolor="black", alpha=0.8, edgecolor="none"),
+                    zorder=8,
                 )
+
+            _phrase_idx += 1
 
     # ── Draw the funscript ──────────────────────────────────────────
     if color_mode == "velocity" and n > 1:
